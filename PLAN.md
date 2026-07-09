@@ -267,7 +267,10 @@ python-dotenv
 - **Contrato de JSON:** o front e o banco falam vocabulários diferentes (`desc`/`description`, `col`/`stage`, `order`/`position`, `appName`/`app_name`). O mapa vive em `routers/common.py:FIELD_MAP` e a saída é montada nos `.of()` de `schemas.py`. Ao adicionar campo, mexer nos dois lados.
 - **`date` NOT NULL com default:** `Feedback.date` e `Decision.date` têm default "hoje". Mandar `null` explícito tentaria gravar NULL; os routers descartam o `None` para o default agir (`sem_nulos`).
 - **Seed x `GET /api/state`:** o `/state` cria a linha `settings` id="1" em branco na primeira leitura. Por isso o seed não faz só "criar se ausente": ele também preenche uma linha existente que nunca foi configurada, e preserva a que já foi. Rodar o `/state` antes do seed não deixa o `launchCity` vazio para sempre.
-- **Semente duplicada:** o conteúdo vive em dois lugares (`seedData()` no `index.html` e `app/seed.py`). Depois da Fase 4 o front deixa de semear e o banco vira a única fonte; até lá, mudar um sem o outro faz os dois divergirem.
+- ~~**Semente duplicada**~~ — resolvido na Fase 4: `seedData()`/`seedCards()` saíram do `index.html`. O banco é a única fonte; `app/seed.py` é a única semente.
+- **`assignee` é o apelido, não o uuid:** o front chava os responsáveis por `name` em minúsculo (`matheus`, `geovanny`), que é o que a coluna `assignee` guarda. `PEOPLE` é montado em `buildPeople()` a partir de `/api/state.users`. Renomear um usuário órfã as tarefas dele — se isso virar problema, migrar `assignee` para o `id`.
+- **`input[type=date]` vazio devolve `''`,** e a API espera `date | null`. Mandar `''` dá 422. O front passa tudo por `dOrNull()`.
+- **Sync x otimista:** o tick de sync é pulado com modal aberto, durante um arrasto, e enquanto há mutação em voo (`inFlight`). Sem a trava do `inFlight`, um tick pousando entre a alteração local e a resposta do PATCH desfaria a alteração na tela.
 
 ## 14. Fases (checklist)
 
@@ -294,12 +297,13 @@ python-dotenv
 - [x] Importar os dados semente atuais (uma vez, via seed) — traduzidos do `seedData()` do `index.html`; cada coleção entra só se a tabela dela estiver vazia
 
 **Fase 4 — Integração do front**
-- [ ] Objeto `api` com token e tratamento de 401
-- [ ] Tela de login e botão de sair
-- [ ] `load()` usando `GET /api/state`
-- [ ] Trocar cada mutação pela chamada correspondente (tabela da seção 9)
-- [ ] `syncState()` por foco e intervalo, com a trava do modal
-- [ ] Responsável usando o usuário logado
+- [x] Objeto `api` com token e tratamento de 401
+- [x] Tela de login e botão de sair
+- [x] `load()` usando `GET /api/state`
+- [x] Trocar cada mutação pela chamada correspondente (tabela da seção 9)
+- [x] `syncState()` por foco e intervalo, com a trava do modal
+- [x] Responsável usando o usuário logado
+- [x] `seedData()`/`seedCards()` e o `store` de localStorage removidos: o front é cliente puro da API
 
 **Fase 5 — Deploy**
 - [ ] Base e usuário do Postgres no VPS
