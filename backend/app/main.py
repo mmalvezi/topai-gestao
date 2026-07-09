@@ -5,6 +5,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import create_db_and_tables
+from app.routers import (
+    auth,
+    decisions,
+    features,
+    feedback,
+    goals,
+    milestones,
+    settings as settings_router,
+    state,
+    tasks,
+)
 
 
 @asynccontextmanager
@@ -31,6 +42,14 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-# Fase 2+: api.include_router(auth.router), state, tasks, goals, ...
+api.include_router(auth.router)
+api.include_router(state.router)
+api.include_router(tasks.router)
+api.include_router(goals.router)
+api.include_router(milestones.router)
+api.include_router(features.router)
+api.include_router(feedback.router)
+api.include_router(decisions.router)
+api.include_router(settings_router.router)
 
 app.include_router(api)

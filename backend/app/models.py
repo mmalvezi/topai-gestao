@@ -49,6 +49,7 @@ class User(Base, table=True):
     email: str = Field(unique=True, index=True)
     password_hash: str
     role: str = Field(default="member")  # owner | member
+    color: str = Field(default="#4C6EF5")  # avatar no front
     active: bool = Field(default=True)
 
 

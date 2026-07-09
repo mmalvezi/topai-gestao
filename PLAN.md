@@ -87,7 +87,7 @@ topai-gestao/
 
 Convenções: PK `id` como texto (uuid4 em string, igual ao front que usa ids curtos), `created_at` e `updated_at` em toda tabela. **Atenção:** `column` é palavra reservada no SQL. A etapa da tarefa vai na coluna **`stage`** (o front chama de `col`; mapear na serialização).
 
-- **users**: id, name, email (único), password_hash, role (`owner`/`member`), active (bool)
+- **users**: id, name, email (único), password_hash, role (`owner`/`member`), color (avatar no front), active (bool)
 - **tasks**: id, title, description, category, priority, assignee, **stage**, due (date, nullable), feedback (text), position (float, para ordenar no kanban)
 - **goals**: id, title, current (int), target (int), color, position
 - **milestones**: id, title, description, date (date, nullable), status (`todo`/`doing`/`done`), position
@@ -232,6 +232,12 @@ DATABASE_URL=postgresql+psycopg://topai_app:senha@localhost:5432/topai
 JWT_SECRET=gerar_com_openssl_rand_hex_32
 JWT_EXPIRE_DAYS=30
 CORS_ORIGINS=https://gestao.topai.com.br
+
+# Usados só pelo `python -m app.seed`. Sem eles, o seed usa uma senha padrão e avisa.
+SEED_MATHEUS_EMAIL=
+SEED_MATHEUS_PASSWORD=
+SEED_GEOVANNY_EMAIL=
+SEED_GEOVANNY_PASSWORD=
 ```
 
 ## 12. requirements.txt (backend)
@@ -258,6 +264,10 @@ python-dotenv
 - **Otimista com rollback:** se a API falhar, reverter o estado local e avisar.
 - **Segredos fora do git:** `.env` no `.gitignore`. Nunca commitar senha nem `JWT_SECRET`.
 - **Permissões do Postgres:** no PG 15+ pode faltar permissão no schema `public`; se der erro de permissão, rodar `GRANT ALL ON SCHEMA public TO topai_app;` dentro da base `topai`.
+- **Contrato de JSON:** o front e o banco falam vocabulários diferentes (`desc`/`description`, `col`/`stage`, `order`/`position`, `appName`/`app_name`). O mapa vive em `routers/common.py:FIELD_MAP` e a saída é montada nos `.of()` de `schemas.py`. Ao adicionar campo, mexer nos dois lados.
+- **`date` NOT NULL com default:** `Feedback.date` e `Decision.date` têm default "hoje". Mandar `null` explícito tentaria gravar NULL; os routers descartam o `None` para o default agir (`sem_nulos`).
+- **Seed x `GET /api/state`:** o `/state` cria a linha `settings` id="1" em branco na primeira leitura. Por isso o seed não faz só "criar se ausente": ele também preenche uma linha existente que nunca foi configurada, e preserva a que já foi. Rodar o `/state` antes do seed não deixa o `launchCity` vazio para sempre.
+- **Semente duplicada:** o conteúdo vive em dois lugares (`seedData()` no `index.html` e `app/seed.py`). Depois da Fase 4 o front deixa de semear e o banco vira a única fonte; até lá, mudar um sem o outro faz os dois divergirem.
 
 ## 14. Fases (checklist)
 
@@ -273,15 +283,15 @@ python-dotenv
 - [x] `GET /api/health`
 
 **Fase 2 — Auth**
-- [ ] Tabela users + `seed.py` com Matheus e Geovanny
-- [ ] `POST /api/auth/login` (bcrypt) e `GET /api/auth/me`
-- [ ] Dependency `get_current_user` protegendo os routers
+- [x] Tabela users + `seed.py` com Matheus e Geovanny
+- [x] `POST /api/auth/login` (bcrypt) e `GET /api/auth/me`
+- [x] Dependency `get_current_user` protegendo os routers
 
 **Fase 3 — CRUD e estado**
-- [ ] Routers de tasks, goals, milestones, features, feedback, decisions
-- [ ] `PUT /api/settings`
-- [ ] `GET /api/state` agregando tudo
-- [ ] Importar os dados semente atuais (uma vez, via seed)
+- [x] Routers de tasks, goals, milestones, features, feedback, decisions
+- [x] `PUT /api/settings`
+- [x] `GET /api/state` agregando tudo
+- [x] Importar os dados semente atuais (uma vez, via seed) — traduzidos do `seedData()` do `index.html`; cada coleção entra só se a tabela dela estiver vazia
 
 **Fase 4 — Integração do front**
 - [ ] Objeto `api` com token e tratamento de 401
