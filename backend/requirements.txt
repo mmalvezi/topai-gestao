@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+psycopg[binary]
+bcrypt==4.1.3
+pyjwt
+pydantic-settings
+python-dotenv
