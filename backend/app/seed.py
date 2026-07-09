@@ -10,12 +10,14 @@ vocabulário do banco (seção 13 do PLAN: desc->description, col->stage, order-
 appName->app_name...). Os ids são uuid novos; os `uid()` de runtime do front são
 descartados de propósito.
 
-As senhas vêm do ambiente. Sem elas, usa um fallback óbvio e avisa em voz alta —
-o fallback existe para o desenvolvimento local, nunca para produção.
+As senhas vêm do ambiente (`SEED_*_PASSWORD`). Sem elas o seed ABORTA, para um deploy
+esquecido não nascer com a senha de exemplo — que é pública neste repositório.
+Para desenvolvimento local, `SEED_ALLOW_DEV_PASSWORD=1` libera o fallback.
 """
 
 import datetime as dt
 import os
+import sys
 
 from dotenv import load_dotenv
 from sqlalchemy import func
@@ -28,8 +30,17 @@ from app.security import hash_senha
 
 load_dotenv(ENV_FILE)
 
-SENHA_FALLBACK = "trocar123"
+SENHA_FALLBACK = "trocar123"  # só com SEED_ALLOW_DEV_PASSWORD=1; nunca em produção
+FLAG_DEV = "SEED_ALLOW_DEV_PASSWORD"
 SETTINGS_ID = "1"
+
+
+class SeedAbortado(RuntimeError):
+    """Falta configuração obrigatória. Nada é gravado."""
+
+
+def dev_liberado() -> bool:
+    return os.getenv(FLAG_DEV) == "1"
 
 USUARIOS = [
     {
@@ -179,19 +190,35 @@ def vazia(session: Session, model: type[SQLModel]) -> bool:
 
 
 def seed_usuarios(session: Session) -> list[str]:
-    usou_fallback = []
+    """Cria quem falta. Aborta ANTES de gravar qualquer coisa se faltar senha."""
+    a_criar, faltando, usou_fallback = [], [], []
+
     for u in USUARIOS:
         email = os.getenv(u["email_var"], u["email_padrao"]).strip().lower()
-        senha = os.getenv(u["senha_var"]) or SENHA_FALLBACK
 
         if session.exec(select(User).where(User.email == email)).first():
             print(f"[=] {u['name']} já existe ({email}), nada a fazer.")
-            continue
+            continue  # quem já existe não precisa de senha
 
-        # Só avisa por quem foi de fato criado agora com a senha padrão.
-        if senha == SENHA_FALLBACK:
+        senha = os.getenv(u["senha_var"])
+        if not senha:
+            if not dev_liberado():
+                faltando.append(u["senha_var"])
+                continue
+            senha = SENHA_FALLBACK
             usou_fallback.append(f"{u['name']} <{email}>")
 
+        a_criar.append((u, email, senha))
+
+    # Falha alto e cedo: nenhum usuário é criado se algum ficou sem senha.
+    if faltando:
+        raise SeedAbortado(
+            "Faltam senhas para criar os usuários: " + ", ".join(faltando) + ".\n"
+            "Defina-as no .env (ou no ambiente) antes de rodar o seed.\n"
+            f"Só para desenvolvimento local, {FLAG_DEV}=1 libera a senha de exemplo."
+        )
+
+    for u, email, senha in a_criar:
         session.add(
             User(
                 name=u["name"],
@@ -202,6 +229,7 @@ def seed_usuarios(session: Session) -> list[str]:
             )
         )
         print(f"[+] {u['name']} criado ({email}, role={u['role']}).")
+
     return usou_fallback
 
 
@@ -339,10 +367,18 @@ def seed() -> None:
     if usou_fallback:
         print()
         print("!" * 70)
-        print(f"AVISO: senha padrão '{SENHA_FALLBACK}' usada para: {', '.join(usou_fallback)}")
-        print("Defina SEED_*_PASSWORD no .env e troque estas senhas antes de ir para produção.")
+        print(f"AVISO: senha de exemplo '{SENHA_FALLBACK}' usada para: {', '.join(usou_fallback)}")
+        print(f"Isso só aconteceu porque {FLAG_DEV}=1. NUNCA use essa flag em produção.")
         print("!" * 70)
 
 
 if __name__ == "__main__":
-    seed()
+    try:
+        seed()
+    except SeedAbortado as e:
+        print()
+        print("!" * 70, file=sys.stderr)
+        print("SEED ABORTADO. Nada foi gravado no banco.", file=sys.stderr)
+        print(e, file=sys.stderr)
+        print("!" * 70, file=sys.stderr)
+        sys.exit(1)

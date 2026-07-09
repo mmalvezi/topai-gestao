@@ -1,0 +1,49 @@
+# Topaí · Central do app — Nginx
+#
+# Copie para /etc/nginx/sites-available/topai e ative com:
+#   sudo ln -s /etc/nginx/sites-available/topai /etc/nginx/sites-enabled/topai
+#   sudo nginx -t && sudo systemctl reload nginx
+#
+# TROCAR ANTES DE USAR:
+#   - server_name: o subdomínio real do Topaí
+#   - root: o caminho do repositório clonado no VPS
+#
+# Front e API no MESMO domínio (seção 4 do PLAN). É o que faz o
+# `const API_BASE = ''` do index.html funcionar sem CORS.
+
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name gestao.topai.com.br;          # <- TROCAR pelo seu subdomínio
+
+    root /var/www/topai-gestao;               # <- TROCAR se clonou em outro lugar
+    index index.html;
+
+    # A API antes do catch-all: o Uvicorn escuta só no loopback.
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # O front é um arquivo só; qualquer rota desconhecida cai nele.
+    location / {
+        try_files $uri /index.html;
+    }
+
+    # Não servir o backend nem o .env por engano.
+    location ~ ^/(backend|deploy)/ {
+        return 404;
+    }
+    location ~ /\.(env|git) {
+        return 404;
+    }
+}
+
+# SSL: NÃO escreva o bloco 443 à mão. Rode
+#   sudo certbot --nginx -d gestao.topai.com.br
+# O certbot reescreve este arquivo, acrescenta o server 443 com os
+# certificados, redireciona 80 -> 443 e cuida da renovação sozinho.

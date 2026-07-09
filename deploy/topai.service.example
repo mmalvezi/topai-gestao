@@ -1,0 +1,31 @@
+# Topaí · API — unit do systemd
+#
+# Copie para /etc/systemd/system/topai.service e ative com:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now topai
+#   sudo systemctl status topai
+#
+# Logs:  sudo journalctl -u topai -f
+#
+# TROCAR ANTES DE USAR: os caminhos, se o clone não for /var/www/topai-gestao.
+
+[Unit]
+Description=Topai API (FastAPI + Uvicorn)
+After=network.target postgresql.service
+
+[Service]
+WorkingDirectory=/var/www/topai-gestao/backend
+
+# Lê DATABASE_URL, JWT_SECRET, CORS_ORIGINS. Este arquivo NÃO está no git.
+EnvironmentFile=/var/www/topai-gestao/backend/.env
+
+# Escuta só no loopback: quem fala com o mundo é o Nginx.
+ExecStart=/var/www/topai-gestao/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+Restart=always
+RestartSec=3
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

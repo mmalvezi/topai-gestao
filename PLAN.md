@@ -263,6 +263,8 @@ python-dotenv
 - **Sync x modal aberto:** o polling não pode re-renderizar com formulário aberto.
 - **Otimista com rollback:** se a API falhar, reverter o estado local e avisar.
 - **Segredos fora do git:** `.env` no `.gitignore`. Nunca commitar senha nem `JWT_SECRET`.
+- **Seed sem senha aborta:** o repositório é público e a senha de exemplo (`trocar123`) está no código. Por isso `python -m app.seed` falha com `SEED ABORTADO` se faltar alguma `SEED_*_PASSWORD`, e não grava nada — nem os usuários que tinham senha. Em desenvolvimento, `SEED_ALLOW_DEV_PASSWORD=1` libera o fallback.
+- **`API_BASE = ''` exige mesmo domínio:** abrir o `index.html` por `file://` não fala com a API. Para dev, troque para `http://localhost:8000` e some a origem em `CORS_ORIGINS`.
 - **Permissões do Postgres:** no PG 15+ pode faltar permissão no schema `public`; se der erro de permissão, rodar `GRANT ALL ON SCHEMA public TO topai_app;` dentro da base `topai`.
 - **Contrato de JSON:** o front e o banco falam vocabulários diferentes (`desc`/`description`, `col`/`stage`, `order`/`position`, `appName`/`app_name`). O mapa vive em `routers/common.py:FIELD_MAP` e a saída é montada nos `.of()` de `schemas.py`. Ao adicionar campo, mexer nos dois lados.
 - **`date` NOT NULL com default:** `Feedback.date` e `Decision.date` têm default "hoje". Mandar `null` explícito tentaria gravar NULL; os routers descartam o `None` para o default agir (`sem_nulos`).
@@ -305,14 +307,22 @@ python-dotenv
 - [x] Responsável usando o usuário logado
 - [x] `seedData()`/`seedCards()` e o `store` de localStorage removidos: o front é cliente puro da API
 
-**Fase 5 — Deploy**
+**Fase 5a — Kit de deploy (no repositório)**
+- [x] `deploy/nginx.conf.example` (proxy `/api`, `try_files`, nota do certbot)
+- [x] `deploy/topai.service.example` (unit systemd do Uvicorn)
+- [x] `backend/.env.example` completo e comentado
+- [x] `DEPLOY.md` na raiz: runbook em ordem, com smoke test
+- [x] Seed endurecido: aborta sem `SEED_*_PASSWORD`; fallback só com `SEED_ALLOW_DEV_PASSWORD=1`
+- [x] `index.html` com `API_BASE = ''` (relativo, mesmo domínio)
+
+**Fase 5b — Execução no VPS** (nada aqui foi feito ainda; siga o `DEPLOY.md`)
 - [ ] Base e usuário do Postgres no VPS
 - [ ] venv + requirements + `.env` de produção
 - [ ] Serviço systemd rodando o Uvicorn
-- [ ] Nginx servindo estático + proxy `/api`
+- [ ] Nginx servindo estático + proxy `/api` (validar com `sudo nginx -t`)
 - [ ] DNS do subdomínio apontado
 - [ ] SSL via certbot
-- [ ] Rodar o seed de usuários e trocar as senhas
+- [ ] Rodar o seed com as `SEED_*_PASSWORD` definidas
 
 **Fase 6 — Fechamento**
 - [ ] Teste com dois usuários ao mesmo tempo (criar, mover, editar, aprovar)
